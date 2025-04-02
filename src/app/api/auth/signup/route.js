@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/utils/db";
+const mysql = await import("mysql2/promise");
+const db = await mysql.createPool(process.env.DATABASE_URL);
 
 export async function POST(req) {
     try {
