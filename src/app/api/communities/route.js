@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { db } from "@/utils/db";
 
 export async function GET(req) {
   try {
+    const mysql = await import("mysql2/promise");
+    const db = await mysql.createPool(process.env.DATABASE_URL);
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
     let query;
     let queryParams = [];
 
     if (userId) {
-      // Fetch only the communities belonging to the logged-in user
       query = `SELECT s.*, GROUP_CONCAT(t.name) AS tags 
                FROM servers s 
                LEFT JOIN server_tags st ON s.id = st.server_id 
@@ -18,7 +19,6 @@ export async function GET(req) {
                GROUP BY s.id`;
       queryParams = [userId];
     } else {
-      // Fetch all communities (fallback if no userId is provided)
       query = `SELECT s.*, GROUP_CONCAT(t.name) AS tags 
                FROM servers s 
                LEFT JOIN server_tags st ON s.id = st.server_id 
@@ -42,6 +42,9 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
+    const mysql = await import("mysql2/promise");
+    const db = await mysql.createPool(process.env.DATABASE_URL);
+
     const { name, description, communityURL, tags, imageUrl, members, userId } = await req.json();
 
     if (!name || !description || !communityURL) {
@@ -49,9 +52,8 @@ export async function POST(req) {
     }
 
     const query = `INSERT INTO servers (name, description, invite_link, image_url, owner_id, members) 
-    VALUES (?, ?, ?, ?, ?, ?)`;
-const [result] = await db.query(query, [name, description, communityURL, imageUrl, userId, 0]);
-
+                   VALUES (?, ?, ?, ?, ?, ?)`;
+    const [result] = await db.query(query, [name, description, communityURL, imageUrl, userId, 0]);
 
     const serverId = result.insertId;
 
@@ -59,11 +61,16 @@ const [result] = await db.query(query, [name, description, communityURL, imageUr
     if (tags && Array.isArray(tags)) {
       for (const tag of tags) {
         if (tag.trim() !== "") {
-          await db.query("INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE name=name", [tag]);
+          await db.query(
+            "INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE name=name",
+            [tag]
+          );
           const [tagResult] = await db.query("SELECT id FROM tags WHERE name = ?", [tag]);
           if (tagResult.length > 0) {
-            await db.query("INSERT INTO server_tags (server_id, tag_id) VALUES (?, ?)", 
-                          [serverId, tagResult[0].id]);
+            await db.query(
+              "INSERT INTO server_tags (server_id, tag_id) VALUES (?, ?)",
+              [serverId, tagResult[0].id]
+            );
           }
         }
       }
