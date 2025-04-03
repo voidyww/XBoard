@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
+import { db } from "@/utils/db";
 
-// DELETE a community
 export async function DELETE(req, { params }) {
   try {
-    const mysql = await import("mysql2/promise");
-    const db = await mysql.createPool(process.env.DATABASE_URL);
-
     const { id } = params;
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -33,51 +30,44 @@ export async function DELETE(req, { params }) {
   }
 }
 
-// PUT to update a community
+// NEW: Handle updating community description & tags
 export async function PUT(req, { params }) {
   try {
-    const mysql = await import("mysql2/promise");
-    const db = await mysql.createPool(process.env.DATABASE_URL);
-
     const { id } = params;
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
+    // Client will send updated description & tags in JSON
     const { description, tags } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "User ID required" }, { status: 400 });
     }
 
+    // Make sure the user is the owner
     const [results] = await db.query("SELECT owner_id FROM servers WHERE id = ?", [id]);
     if (results.length === 0) {
       return NextResponse.json({ error: "Community not found" }, { status: 404 });
     }
-
     if (results[0].owner_id !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
+    // Update the server's description
     await db.query("UPDATE servers SET description = ? WHERE id = ?", [description, id]);
 
+    // Update tags: remove old ones, then insert the new ones
     await db.query("DELETE FROM server_tags WHERE server_id = ?", [id]);
-
     if (Array.isArray(tags)) {
       for (const tag of tags) {
         const trimmed = tag.trim();
         if (trimmed) {
-          await db.query(
-            "INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE name=name",
-            [trimmed]
-          );
-
+          // Insert tag if not exists
+          await db.query("INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE name=name", [trimmed]);
+          // Get the tag ID
           const [tagResult] = await db.query("SELECT id FROM tags WHERE name = ?", [trimmed]);
-
           if (tagResult.length > 0) {
-            await db.query(
-              "INSERT INTO server_tags (server_id, tag_id) VALUES (?, ?)",
-              [id, tagResult[0].id]
-            );
+            await db.query("INSERT INTO server_tags (server_id, tag_id) VALUES (?, ?)", [id, tagResult[0].id]);
           }
         }
       }
