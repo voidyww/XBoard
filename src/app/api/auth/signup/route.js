@@ -9,7 +9,7 @@ export async function POST(req) {
         }
 
         // Store Firebase UID in MySQL
-        await db.query("INSERT INTO users (id, email, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE username = VALUES(username)", 
+        await db.query("INSERT INTO users (id, email, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE username = VALUES(username)",
             [firebaseUid, email, username]);
 
         return NextResponse.json({ message: "User saved successfully!" }, { status: 201 });
@@ -18,5 +18,3 @@ export async function POST(req) {
         return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 }
-
-

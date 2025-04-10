@@ -16,8 +16,8 @@ import "./logup.css";
 type Cuisine = string;
 
 const cuisines: Cuisine[] = [
-  "Mexican",
-  "Italian",
+  "USA",
+  "DOGE",
   "Chinese",
   "Japanese",
   "Indian",
